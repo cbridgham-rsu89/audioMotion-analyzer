@@ -4,7 +4,7 @@
  * https://github.com/hvianna/audioMotion-analyzer
  */
 
-import AudioMotionAnalyzer from '../src/audioMotion-analyzer.js';
+import AudioMotionAnalyzer from './audioMotion-analyzer.js';
 
 const audioEl = document.getElementById('audio'),
 	  presetSelection = document.getElementById('presets');
@@ -371,6 +371,83 @@ const elNote = document.getElementById('note'),
 	  elFreq = document.getElementById('frequency'),
 	  elVol  = document.getElementById('volume');
 
+const NOTE_NAMES = [ 'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B' ];
+
+function midiToFreq( midi ) {
+	return 440 * ( 2 ** ( ( midi - 69 ) / 12 ) );
+}
+
+function populateNoteSelect( startMidi = 84, endMidi = 95 ) {
+	elNote.innerHTML = '<option value="">Use custom</option>';
+
+	for ( let midi = startMidi; midi <= endMidi; midi++ ) {
+		const freq = midiToFreq( midi );
+		const octave = Math.floor( midi / 12 ) - 1;
+		const noteName = NOTE_NAMES[ midi % 12 ];
+		const option = new Option( `${ noteName }${ octave } - ${ freq.toFixed( 2 ) } Hz`, freq.toFixed( 2 ) );
+		elNote.appendChild( option );
+	}
+
+	elNote.value = midiToFreq( 88 ).toFixed( 2 ); // default to A6
+}
+
+populateNoteSelect();
+
+const keyboardNoteMap = {
+	c: 1046.50,
+	d: 1174.66,
+	e: 1318.51,
+	f: 1396.91,
+	g: 1567.98,
+	a: 1760.00
+};
+
+const keyboardKeys = new Set( Object.keys( keyboardNoteMap ) );
+
+const twinkleNotes = [ 'c', 'c', 'g', 'g', 'a', 'a', 'g', 'f', 'f', 'e', 'e', 'd', 'd', 'c' ];
+
+function playTwinkle() {
+	const noteDur = 0.35;
+
+	twinkleNotes.forEach( ( note, index ) => {
+		setTimeout( () => {
+			const freq = keyboardNoteMap[ note ];
+			if ( freq ) {
+				elNote.value = freq.toFixed( 2 );
+				elFreq.value = '';
+				playTone( freq );
+			}
+		}, index * noteDur * 2000 );
+	});
+
+	setTimeout( () => playTone(), twinkleNotes.length * noteDur * 2000 );
+}
+
+document.addEventListener( 'keydown', event => {
+	const key = event.key.toLowerCase();
+	if ( event.repeat )
+		return;
+	if ( key == 't' ) {
+		event.preventDefault();
+		playTwinkle();
+		return;
+	}
+	if ( ! keyboardKeys.has( key ) )
+		return;
+	if ( document.activeElement && [ 'INPUT', 'SELECT', 'TEXTAREA' ].includes( document.activeElement.tagName ) )
+		return;
+	event.preventDefault();
+	const freq = keyboardNoteMap[ key ];
+	elNote.value = freq.toFixed( 2 );
+	elFreq.value = '';
+	playTone( freq );
+});
+
+document.addEventListener( 'keyup', event => {
+	if ( keyboardKeys.has( event.key.toLowerCase() ) )
+		playTone();
+});
+
 [ elNote, elFreq ].forEach( el => {
 	el.addEventListener( 'input', () => {
 		if ( el == elFreq )
@@ -438,8 +515,13 @@ document.getElementById('btn_getOptions').addEventListener( 'click', () => {
 });
 
 // Initialize UI elements
+audioMotion.setOptions({
+		minFreq: 900,
+		maxFreq: 2100,
+		frequencyScale: 'log'
+	});
+elNote.value = midiToFreq( 88 ).toFixed( 2 );
 updateUI();
-
 
 /** Functions **/
 
